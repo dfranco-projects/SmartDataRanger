@@ -1,99 +1,105 @@
-# **SmartDataRanger (WIP)**  
-🚀 **AI-Powered Data Loading and Preprocessing Assistant**  
+# Smart Data Ranger
 
-**SmartDataRanger** is your intelligent AI assistant for loading and preprocessing datasets, solving import issues, and handling data transformations with ease! Designed for data practitioners, it goes far beyond simple automation by **integrating a powerful LLM-based RAG (Retriever-Augmented Generation)** built from scratch. This cutting-edge system helps you troubleshoot, resolve data import errors in real time, and apply advanced preprocessing solutions to your data.  
+SmartDataRanger is a Python library for **reliable dataset onboarding**.
+It focuses on the hardest and most time-consuming part of data work: getting messy files into trustworthy DataFrames and understanding what went wrong when they fail.
 
-Whether you're dealing with formatting challenges, missing metadata, or complex transformations, **SmartDataRanger** guides you through the process with practical solutions, reducing manual effort and speeding up your workflows.  
+The core idea is simple:
 
-**Quick imports, intelligent fixes, and interactive support**—SmartDataRanger makes dataset preparation smarter, faster, and more efficient.  
+* Make data imports deterministic and reproducible
+* Detect and explain common data issues early
+* Use AI only where human judgment is normally required
 
----
-
-## **Features**  
-
-- **Fast Imports**: Optimizes your data loading process, cutting down on wait times and enabling you to work with your data faster.  
-- **LLM-Powered Assistant**: Leverage an advanced LLM API to diagnose import issues and provide step-by-step solutions, answering your questions and suggesting fixes in real time.  
-- **Manual Metadata Updates**: Automates much of the metadata management while allowing manual updates for precision when needed.  
-- **Dynamic Metadata Management**: Automatically generates metadata for your files, streamlining imports.  
-- **Pandas Integration**: Fully compatible with pandas functions, supporting all major pandas file readers (`read_csv`, `read_excel`, etc.).  
-- **Documentation on Demand**: Instantly retrieve detailed documentation on pandas function arguments based on your file types.  
-- **Advanced Preprocessing**: Handles preprocessing tasks, such as data type corrections, feature engineering, and cleaning, all guided by the LLM.  
+AI is an assistant, not the execution engine.
 
 ---
 
-## **Why a RAG?**  
+## What problem this solves
 
-SmartDataRanger is powered by a **Retriever-Augmented Generation (RAG)** system built from scratch that combines the power of LLMs with a custom-built retrieval module. This architecture ensures that:  
-- The assistant can fetch relevant solutions from trusted sources (e.g., documentation, user-provided metadata, or even external resources).  
-- It adapts dynamically to handle unseen errors or preprocessing challenges.  
-- It enables intelligent interactions with your scripts and datasets for personalized, actionable insights.  
+Most data work still starts with:
 
----
+* Broken imports
+* Wrong encodings
+* Silent dtype corruption
+* Ambiguous headers
+* Inconsistent schemas across files
+* Trial and error fixes copied from past projects
 
-## **Supported File Formats**  
-
-- `.csv`  
-- `.xlsx`  
-- `.parquet`  
-- `.json`  
-- `.txt`  
+SmartDataRanger turns this into a **repeatable onboarding step** with clear artifacts and explanations.
 
 ---
 
-## **Get Inspired**  
+## Design principles
 
-SmartDataPrep is more than just a tool—it's a learning resource. Explore the codebase to understand how to build a RAG system from scratch for your own projects!  
+* Deterministic by default
+* Safe and auditable transformations
+* Human approval over automatic fixes
+* Works in scripts, notebooks, and CI
+* AI explains and suggests, never silently mutates data
 
 ---
 
-## Getting Started
+## Core features
 
-### Repository Structure
+### Dataset discovery and import
 
-```bash
-SmartDataLoader/
-├── README.md                              # Project overview and usage instructions
-├── utils/
-│   ├── data_ingestor.py                   # Handles metadata creation and ingestion
-│   ├── data_loader.py                     # Loads data using the metadata
-│   ├── metadata_handler.py                # Metadata manipulation and updates
-│   ├── path_manager.py                    # Centralized path manager
-├── assistant/
-│   ├── __init__.py                        # Makes the assistant package
-│   ├── pandas_doc_helper.py               # Pandas documentation helper
-│   ├── import_assistant.py                # Diagnoses and suggests solutions for import issues
-├── example_data/
-│   ├── clean_data/                        # Clean example data
-│       ├── one_file/                      # One example file
-│       ├── multiple_files/                # Multiple example files
-│   ├── raw_data/                          # Unprocessed example data
-├── examples/
-│   ├── import_multiple_extensions.ipynb   # Example of loading multiple file types (CSV, XLSX, etc.)
-│   ├── metadata_handling.ipynb            # Example of metadata handling using pandas_doc_helper and the assistant
-├── requirements.txt                       # Required dependencies
-└── .gitignore                             # Files and directories to ignore
+* Auto-detect static files in a folder
+* Support for CSV, Excel, Parquet, JSON, TXT
+* Robust handling of encoding, delimiters, headers, and schemas
+
+### Import contracts
+
+* Generate a versioned import contract (YAML or JSON)
+* Reuse the contract to guarantee reproducible reloads
+* Fail loudly when incoming data drifts from expectations
+
+### Data diagnostics
+
+* Detect common issues:
+
+  * mixed dtypes
+  * broken dates
+  * unexpected nulls
+  * duplicated rows
+  * inconsistent columns across files
+* Produce a structured import report
+
+### AI-assisted explanations
+
+* Plain-English explanations of import failures
+* Context-aware suggestions grounded in the actual dataset
+* Suggested fixes rendered as executable pandas code
+* All fixes are opt-in and traceable
+
+---
+
+## Example
+
+```python
+from smartdataranger import import_dataset
+
+df, report = import_dataset("./raw_data")
 ```
 
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/SmartDataLoader.git
-   cd SmartDataLoader
-   ```
+Reusing the same contract later:
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ````
+```python
+df = import_dataset("./raw_data", contract="import_contract.yaml")
+```
+
+If something breaks, SmartDataRanger explains why and what changed.
 
 ---
 
-## Contributing
+## Intended users
 
-Contributions are welcome! Please fork the repository and submit a pull request.
+* Data scientists
+* Analytics engineers
+* Data analysts
+* Anyone tired of rewriting data import logic per project
 
 ---
 
-## License
+## Status
 
-MIT License. See LICENSE file for details.
+Work in progress.
+The API is evolving and feedback is welcome.
