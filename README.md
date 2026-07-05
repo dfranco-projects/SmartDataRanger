@@ -1,99 +1,201 @@
-# **SmartDataRanger (WIP)**  
-🚀 **AI-Powered Data Loading and Preprocessing Assistant**  
+# SmartDataRanger
 
-**SmartDataRanger** is your intelligent AI assistant for loading and preprocessing datasets, solving import issues, and handling data transformations with ease! Designed for data practitioners, it goes far beyond simple automation by **integrating a powerful LLM-based RAG (Retriever-Augmented Generation)** built from scratch. This cutting-edge system helps you troubleshoot, resolve data import errors in real time, and apply advanced preprocessing solutions to your data.  
+Point it at a folder of messy data files; get clean pandas DataFrames, deterministic
+diagnostics, per-column quality profiles, and a reproducible `metadata.json` —
+100% offline, no API keys, no LLMs.
 
-Whether you're dealing with formatting challenges, missing metadata, or complex transformations, **SmartDataRanger** guides you through the process with practical solutions, reducing manual effort and speeding up your workflows.  
+Every import step is plain, deterministic Python: encoding detection via
+charset-normalizer, delimiter sniffing via the stdlib `csv.Sniffer`, and a
+whitelisted reader registry instead of dynamic code execution. The same input
+always produces the same output.
 
-**Quick imports, intelligent fixes, and interactive support**—SmartDataRanger makes dataset preparation smarter, faster, and more efficient.  
+## Supported formats
 
----
+| Extension       | Reader                | Notes                           |
+| --------------- | --------------------- | ------------------------------- |
+| `.csv`          | `pandas.read_csv`     | encoding + delimiter detection  |
+| `.txt`          | `pandas.read_csv`     | tab-separated by default        |
+| `.xlsx`, `.xls` | `pandas.read_excel`   | via openpyxl                    |
+| `.parquet`      | `pandas.read_parquet` | via pyarrow                     |
+| `.json`         | `pandas.read_json`    |                                 |
+| `.zip`          | archive extraction    | members ingested individually   |
 
-## **Features**  
+Anything else is skipped with an `UNSUPPORTED_FILE_SKIPPED` diagnostic — never a crash.
 
-- **Fast Imports**: Optimizes your data loading process, cutting down on wait times and enabling you to work with your data faster.  
-- **LLM-Powered Assistant**: Leverage an advanced LLM API to diagnose import issues and provide step-by-step solutions, answering your questions and suggesting fixes in real time.  
-- **Manual Metadata Updates**: Automates much of the metadata management while allowing manual updates for precision when needed.  
-- **Dynamic Metadata Management**: Automatically generates metadata for your files, streamlining imports.  
-- **Pandas Integration**: Fully compatible with pandas functions, supporting all major pandas file readers (`read_csv`, `read_excel`, etc.).  
-- **Documentation on Demand**: Instantly retrieve detailed documentation on pandas function arguments based on your file types.  
-- **Advanced Preprocessing**: Handles preprocessing tasks, such as data type corrections, feature engineering, and cleaning, all guided by the LLM.  
+## Install
 
----
-
-## **Why a RAG?**  
-
-SmartDataRanger is powered by a **Retriever-Augmented Generation (RAG)** system built from scratch that combines the power of LLMs with a custom-built retrieval module. This architecture ensures that:  
-- The assistant can fetch relevant solutions from trusted sources (e.g., documentation, user-provided metadata, or even external resources).  
-- It adapts dynamically to handle unseen errors or preprocessing challenges.  
-- It enables intelligent interactions with your scripts and datasets for personalized, actionable insights.  
-
----
-
-## **Supported File Formats**  
-
-- `.csv`  
-- `.xlsx`  
-- `.parquet`  
-- `.json`  
-- `.txt`  
-
----
-
-## **Get Inspired**  
-
-SmartDataPrep is more than just a tool—it's a learning resource. Explore the codebase to understand how to build a RAG system from scratch for your own projects!  
-
----
-
-## Getting Started
-
-### Repository Structure
-
-```bash
-SmartDataLoader/
-├── README.md                              # Project overview and usage instructions
-├── utils/
-│   ├── data_ingestor.py                   # Handles metadata creation and ingestion
-│   ├── data_loader.py                     # Loads data using the metadata
-│   ├── metadata_handler.py                # Metadata manipulation and updates
-│   ├── path_manager.py                    # Centralized path manager
-├── assistant/
-│   ├── __init__.py                        # Makes the assistant package
-│   ├── pandas_doc_helper.py               # Pandas documentation helper
-│   ├── import_assistant.py                # Diagnoses and suggests solutions for import issues
-├── example_data/
-│   ├── clean_data/                        # Clean example data
-│       ├── one_file/                      # One example file
-│       ├── multiple_files/                # Multiple example files
-│   ├── raw_data/                          # Unprocessed example data
-├── examples/
-│   ├── import_multiple_extensions.ipynb   # Example of loading multiple file types (CSV, XLSX, etc.)
-│   ├── metadata_handling.ipynb            # Example of metadata handling using pandas_doc_helper and the assistant
-├── requirements.txt                       # Required dependencies
-└── .gitignore                             # Files and directories to ignore
+```sh
+pip install smartdataranger
+# or
+uv add smartdataranger
 ```
 
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/SmartDataLoader.git
-   cd SmartDataLoader
-   ```
+> Not yet on PyPI. For now, install from source:
+>
+> ```sh
+> git clone https://github.com/dfranco-projects/SmartDataRanger
+> cd SmartDataRanger
+> uv sync
+> ```
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ````
+Requires Python 3.13+.
 
----
+## Quickstart
 
-## Contributing
+```python
+from smartdataranger import import_dataset
 
-Contributions are welcome! Please fork the repository and submit a pull request.
+frames, report = import_dataset("path/to/data")
 
----
+for diag in report.all_diagnostics:
+    print(diag.severity, diag.code, diag.message)
+```
+
+`import_dataset` ingests a folder (or a single file), loads DataFrames, runs
+diagnostics and per-column profiling, and writes a reproducible
+`metadata.json`. A single data file yields a bare `DataFrame`; multiple files
+yield a `{file_name: DataFrame}` dict; an empty folder yields `({}, report)`
+with a dataset-level `EMPTY_DATASET` diagnostic.
+
+```python
+def import_dataset(
+    path: str | Path,
+    *,
+    profile: bool = True,
+    write_metadata: bool = True,
+) -> tuple[pd.DataFrame | dict[str, pd.DataFrame], ImportReport]: ...
+```
+
+A runnable version lives in [`examples/quickstart.py`](examples/quickstart.py).
+
+## CLI
+
+```sh
+ranger scan path/to/data              # rich terminal report
+ranger scan path/to/data --json       # machine-readable report
+ranger scan path/to/data --no-profile --no-write-metadata
+```
+
+`ranger scan` runs `import_dataset` and renders the report. It exits with
+status 1 if the report contains any error-severity diagnostics — handy in
+pipelines and pre-commit checks.
+
+Sample output (abridged — one profile table is rendered per file):
+
+```text
+$ ranger scan ./demo
+╭──────────────────── Scan summary ────────────────────╮
+│ Root: /path/to/demo                                   │
+│ Files ingested: 4                                     │
+│ Total rows: 13                                        │
+│ Errors: 0  Warnings: 2  Info: 5                       │
+╰───────────────────────────────────────────────────────╯
+                        people.csv
+┏━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+┃ Column ┃ Dtype   ┃ Nulls % ┃ Unique ┃ Samples          ┃
+┡━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+│ id     │ int64   │     0.0 │      3 │ 1, 2, 3          │
+│ name   │ str     │     0.0 │      3 │ ada, grace, alan │
+│ score  │ float64 │    25.0 │      2 │ 9.5, 7.0         │
+└────────┴─────────┴─────────┴────────┴──────────────────┘
+Diagnostics
+WARNING ENCODING_NON_UTF8 messy.csv — File is not UTF-8 encoded (detected cp1250).
+INFO DELIMITER_SNIFFED messy.csv — Detected non-comma delimiter ';'.
+WARNING MALFORMED_ROWS messy.csv — 1 row(s) have a field count different from the header (3 fields expected).
+INFO UNSUPPORTED_FILE_SKIPPED notes.docx — Unsupported file type '.docx'; skipped.
+INFO DUPLICATE_ROWS people.csv — people.csv has 1 fully duplicated row(s)
+```
+
+## Diagnostics reference
+
+Each finding is a `Diagnostic` with a stable `code`, a `Severity`
+(`info` / `warning` / `error`), a human-readable `message`, and the file
+(and optionally column) it applies to.
+
+| Code                       | Severity | Meaning                                                |
+| -------------------------- | -------- | ------------------------------------------------------ |
+| `ENCODING_NON_UTF8`        | warning  | File is not UTF-8; decoded with the detected encoding  |
+| `ENCODING_UNDETECTED`      | error    | Encoding could not be determined with confidence       |
+| `DELIMITER_SNIFFED`        | info     | Delimiter detected from a sample (not the default `,`) |
+| `MALFORMED_ROWS`           | warning  | Rows with inconsistent field counts                    |
+| `EMPTY_FILE`               | error    | File contains no data                                  |
+| `DUPLICATE_COLUMN_NAMES`   | warning  | Two or more columns share a name                       |
+| `EMPTY_COLUMN_NAME`        | warning  | A column has a blank/unnamed header                    |
+| `MIXED_TYPE_COLUMN`        | warning  | Object column mixes incompatible Python types          |
+| `ALL_NULL_COLUMN`          | warning  | Every value in the column is null                      |
+| `CONSTANT_COLUMN`          | info     | Column has a single distinct value                     |
+| `DUPLICATE_ROWS`           | info     | Fully-duplicated rows present                          |
+| `UNSUPPORTED_FILE_SKIPPED` | info     | No registered reader for the file's extension          |
+| `INGESTION_FAILED`         | error    | File could not be read or extracted                    |
+| `EMPTY_DATASET`            | warning  | The folder contains no ingestible files                |
+
+## Profiles
+
+With `profile=True` (the default), every file gets one `ColumnProfile` per
+column: `dtype`, null count and percentage, unique count, cardinality
+percentage, and up to 5 stringified sample values — a fast first look at data
+quality without opening a notebook.
+
+## Reproducible metadata
+
+All outputs land under `<data_dir>/.smartdataranger/`:
+
+```text
+data/
+└── .smartdataranger/
+    ├── metadata.json    # reproducible import recipes
+    └── extracted/       # contents of ingested .zip archives
+```
+
+`metadata.json` records, per file, exactly how it was read:
+
+```json
+{
+  "file_name": "sales_q1.csv",
+  "file_type": ".csv",
+  "reader": "csv",
+  "reader_kwargs": {"encoding": "latin-1", "sep": ";"},
+  "columns": ["order_id", "region", "amount"],
+  "row_count": 1204,
+  "source": "sales_q1.csv"
+}
+```
+
+`load_dataset` rebuilds the exact same DataFrames from it:
+
+```python
+from pathlib import Path
+
+from smartdataranger import load_dataset
+
+frames = load_dataset(Path("data/.smartdataranger/metadata.json"))
+```
+
+The `reader` field is a key into a whitelisted reader registry, and
+`reader_kwargs` are plain keyword arguments passed to that reader — the file
+never contains code and nothing in it is ever executed.
+
+## Known limitations
+
+- Passing a single `.zip` file (rather than a folder containing one) yields
+  `({}, report)` with an `EMPTY_DATASET` diagnostic — extracted members can't
+  be traced back to the archive path. Put the archive in a folder and scan that.
+- Passing a single data file scans its parent folder under the hood, so with
+  `write_metadata=True` the written `metadata.json` covers sibling files too;
+  the returned frames are filtered to the requested file.
+- Encoding detection on short non-UTF-8 samples is heuristic: byte-compatible
+  encodings (e.g. `latin-1` vs `cp1250`) may be reported interchangeably.
+
+## Development
+
+```sh
+uv sync                     # install with dev dependencies
+uv run ruff check .         # lint
+uv run ruff format --check .
+uv run mypy                 # type-check (strict)
+uv run pytest               # full suite, including the e2e pipeline tests
+```
 
 ## License
 
-MIT License. See LICENSE file for details.
+[MIT](LICENSE)
