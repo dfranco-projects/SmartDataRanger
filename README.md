@@ -80,23 +80,30 @@ ranger scan path/to/data --no-profile --no-write-metadata
 status 1 if the report contains any error-severity diagnostics — handy in
 pipelines and pre-commit checks.
 
-Sample output:
+Sample output (abridged — one profile table is rendered per file):
 
 ```text
-$ ranger scan ./sales_drop
-SmartDataRanger — ./sales_drop
-
-  sales_q1.csv      1,204 rows x 8 cols
-  sales_q2.csv      1,187 rows x 8 cols
-  notes.docx        skipped
-
+$ ranger scan ./demo
+╭──────────────────── Scan summary ────────────────────╮
+│ Root: /path/to/demo                                   │
+│ Files ingested: 4                                     │
+│ Total rows: 13                                        │
+│ Errors: 0  Warnings: 2  Info: 5                       │
+╰───────────────────────────────────────────────────────╯
+                        people.csv
+┏━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+┃ Column ┃ Dtype   ┃ Nulls % ┃ Unique ┃ Samples          ┃
+┡━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+│ id     │ int64   │     0.0 │      3 │ 1, 2, 3          │
+│ name   │ str     │     0.0 │      3 │ ada, grace, alan │
+│ score  │ float64 │    25.0 │      2 │ 9.5, 7.0         │
+└────────┴─────────┴─────────┴────────┴──────────────────┘
 Diagnostics
-  [warning] ENCODING_NON_UTF8         sales_q1.csv   decoded as latin-1
-  [info]    DELIMITER_SNIFFED         sales_q2.csv   detected ';' as delimiter
-  [info]    DUPLICATE_ROWS            sales_q2.csv   3 fully-duplicated rows
-  [warning] UNSUPPORTED_FILE_SKIPPED  notes.docx     no reader for '.docx'
-
-Metadata written to sales_drop/.smartdataranger/metadata.json
+WARNING ENCODING_NON_UTF8 messy.csv — File is not UTF-8 encoded (detected cp1250).
+INFO DELIMITER_SNIFFED messy.csv — Detected non-comma delimiter ';'.
+WARNING MALFORMED_ROWS messy.csv — 1 row(s) have a field count different from the header (3 fields expected).
+INFO UNSUPPORTED_FILE_SKIPPED notes.docx — Unsupported file type '.docx'; skipped.
+INFO DUPLICATE_ROWS people.csv — people.csv has 1 fully duplicated row(s)
 ```
 
 ## Diagnostics reference
@@ -108,7 +115,7 @@ Each finding is a `Diagnostic` with a stable `code`, a `Severity`
 | Code                       | Severity | Meaning                                                |
 | -------------------------- | -------- | ------------------------------------------------------ |
 | `ENCODING_NON_UTF8`        | warning  | File is not UTF-8; decoded with the detected encoding  |
-| `ENCODING_UNDETECTED`      | warning  | Encoding could not be determined with confidence       |
+| `ENCODING_UNDETECTED`      | error    | Encoding could not be determined with confidence       |
 | `DELIMITER_SNIFFED`        | info     | Delimiter detected from a sample (not the default `,`) |
 | `MALFORMED_ROWS`           | warning  | Rows with inconsistent field counts                    |
 | `EMPTY_FILE`               | error    | File contains no data                                  |
@@ -118,7 +125,7 @@ Each finding is a `Diagnostic` with a stable `code`, a `Severity`
 | `ALL_NULL_COLUMN`          | warning  | Every value in the column is null                      |
 | `CONSTANT_COLUMN`          | info     | Column has a single distinct value                     |
 | `DUPLICATE_ROWS`           | info     | Fully-duplicated rows present                          |
-| `UNSUPPORTED_FILE_SKIPPED` | warning  | No registered reader for the file's extension          |
+| `UNSUPPORTED_FILE_SKIPPED` | info     | No registered reader for the file's extension          |
 | `INGESTION_FAILED`         | error    | File could not be read or extracted                    |
 | `EMPTY_DATASET`            | warning  | The folder contains no ingestible files                |
 
@@ -168,6 +175,17 @@ The `reader` field is a key into a whitelisted reader registry, and
 `reader_kwargs` are plain keyword arguments passed to that reader — the file
 never contains code and nothing in it is ever executed.
 
+## Known limitations
+
+- Passing a single `.zip` file (rather than a folder containing one) yields
+  `({}, report)` with an `EMPTY_DATASET` diagnostic — extracted members can't
+  be traced back to the archive path. Put the archive in a folder and scan that.
+- Passing a single data file scans its parent folder under the hood, so with
+  `write_metadata=True` the written `metadata.json` covers sibling files too;
+  the returned frames are filtered to the requested file.
+- Encoding detection on short non-UTF-8 samples is heuristic: byte-compatible
+  encodings (e.g. `latin-1` vs `cp1250`) may be reported interchangeably.
+
 ## Development
 
 ```sh
@@ -175,7 +193,7 @@ uv sync                     # install with dev dependencies
 uv run ruff check .         # lint
 uv run ruff format --check .
 uv run mypy                 # type-check (strict)
-uv run pytest -m "not e2e"  # unit tests (e2e marker needs the full pipeline)
+uv run pytest               # full suite, including the e2e pipeline tests
 ```
 
 ## License
