@@ -1,7 +1,54 @@
 [project]
 name = "smartdataranger"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "Point it at a folder of data files; get clean DataFrames, diagnostics, and reproducible import metadata."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "pyarrow>=17.0",
+    "openpyxl>=3.1",
+    "charset-normalizer>=3.4",
+    "typer>=0.15",
+    "rich>=13.9",
+]
+
+[project.scripts]
+ranger = "smartdataranger.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pandas-stubs>=2.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/smartdataranger"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = ["pyarrow.*", "charset_normalizer.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["e2e: full-pipeline tests, only pass after all units merge"]
